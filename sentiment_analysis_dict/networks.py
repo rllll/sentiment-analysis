@@ -9,9 +9,13 @@ import os
 import sys
 import jieba
 import numpy as np
+from pathlib import Path
+import json
+import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from sentiment_analysis_dict.utils import ToolGeneral
-from sentiment_analysis_dict.hyperparameters import Hyperparams as hp
+from utils import ToolGeneral
+from hyperparameters import Hyperparams as hp
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
 
 tool = ToolGeneral()
@@ -170,13 +174,57 @@ class SentimentAnalysis():
                 _score0 = score0/4 
         return _score1,_score0
         
-
-
+def eval_data(real_list, predict_list):
+    real_list = [int(y) for y in real_list]
+    predict_list = [int(x) for x in predict_list]
+    report = classification_report(y_true=real_list, y_pred=predict_list, labels=[-1, 0, 1], output_dict=True)
+    return report
 
 if __name__ =='__main__':
+    case_type = ['宝马1系', '宝马2系', '宝马3系（1）','宝马3系（2）', '宝马3系（3）', '宝马3系（4）','宝马3系（5）', '宝马3系（6）', '宝马3系（7）','宝马3系（8）', '宝马3系（9）', '宝马3系（10)','宝马3系（11）', '宝马3系（12）', '宝马4系','宝马5系','宝马X1（1）', '宝马X1（2）', '宝马X1(5)', '宝马X2', '宝马X3']
+    df = pd.read_excel('./data/bmw_all.xlsx', sheet_name=case_type, dtype=str)
+    all_data = df[case_type[0]]
+    for idx in range(1, len(case_type)):
+        all_data = pd.concat([all_data, df[case_type[idx]]], ignore_index=True)
+
     sa = SentimentAnalysis()
-    text = '我妈说明儿不让出去玩'
-    print(sa.normalization_score(text))
+
+    dimens = ['空间', '动力', '操控', '能耗', '舒适性', '外观', '内饰', '性价比', '配置', '续航', '安全性', '环保', '质量与可靠性', '充电', '服务', '品牌', '智能驾驶', '其它', '总的来说']
+    
+    predictMap = {}
+    reportMap = {}
+
+    for dim in dimens:
+        drop_df = all_data.dropna(subset=[dim])
+        x_text = drop_df["具体评价"].tolist()
+        y = drop_df[dim].tolist()
+        real = []
+        predict = []
+        for idx, text in enumerate(x_text):
+            if y[idx] != '1' and y[idx] != '0' and y[idx] != '-1':
+                continue
+            real.append(int(y[idx]))
+            pos, neg = sa.normalization_score(str(text))
+            if pos > neg:
+                predict.append(1)
+            elif pos < neg:
+                predict.append(-1)
+            else:
+                predict.append(0)
+        reportMap[dim] = eval_data(real, predict)
+        predictMap[dim] = {
+            "real": real,
+            "predict": predict
+        }
+    
+    report_str = json.dumps(reportMap, indent=2, ensure_ascii=False)
+    predict_str = json.dumps(predictMap, indent=2, ensure_ascii=False)
+
+    with open('result.json', 'w', encoding='utf-8-sig') as f:
+        f.write(report_str)
+    with open('temp_predict_cache.json', 'w', encoding='utf-8-sig') as f:
+        f.write(predict_str)
+        
 
 
 

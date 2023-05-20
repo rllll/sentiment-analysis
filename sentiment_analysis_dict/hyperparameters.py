@@ -6,7 +6,7 @@ Created on Mon Jan  6 20:44:08 2020
 """
 
 import os
-from sentiment_analysis_dict.utils import ToolGeneral
+from utils import ToolGeneral
 
 
 pwd = os.path.dirname(os.path.abspath(__file__))
